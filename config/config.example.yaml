@@ -1,0 +1,74 @@
+# =============================================================
+# Trading Bot – Konfigurationsdatei
+# Kopiere diese Datei nach config/config.yaml und passe sie an.
+# NIEMALS config/config.yaml in Git committen (steht in .gitignore)!
+# =============================================================
+
+exchange:
+  name: "binance"        # CCXT-kompatibler Exchange-Name
+  api_key: ""            # Besser: Umgebungsvariable EXCHANGE_API_KEY
+  secret: ""             # Besser: Umgebungsvariable EXCHANGE_SECRET
+  sandbox: true          # true = Testnet, false = Live
+
+trading:
+  mode: "backtest"       # "live" | "backtest" | "paper"
+  symbol: "BTC/USDT"
+  timeframe: "1h"        # 1m, 5m, 15m, 1h, 4h, 1d
+
+fibonacci:
+  swing_window: 10           # Candles für Swing-Erkennung
+  use_wma: true              # WMA-geglättete Preise verwenden
+  wma_period: 14             # WMA-Periode
+  levels_retracement:
+    - 0.0
+    - 0.236
+    - 0.382
+    - 0.5
+    - 0.618
+    - 0.786
+    - 1.0
+  levels_extension:
+    - 1.272
+    - 1.414
+    - 1.618
+    - 2.0
+    - 2.618
+  confluence_tolerance: 0.003  # 0.3% Toleranz für Level-Confluence
+
+patterns:
+  enabled:
+    - "engulfing"
+    - "hammer"
+    - "shooting_star"
+    - "double_top"
+    - "double_bottom"
+    - "head_and_shoulders"
+  swing_order: 5             # argrelextrema order-Parameter
+
+risk:
+  max_position_size: 0.1     # Max 10% des Kapitals pro Trade
+  risk_per_trade: 0.02       # 2% Kapitalrisiko pro Trade
+  stop_loss_atr_mult: 2.0    # Stop-Loss = 2x ATR unter Entry
+  take_profit_ratio: 2.0     # Risk:Reward = 1:2
+  max_open_positions: 3
+  max_daily_drawdown: 0.05   # Handel stoppen bei 5% Tagesverlust
+  position_spacing: 0.005    # Min. 0.5% Preisabstand zwischen Entries
+
+backtest:
+  start_date: "2023-01-01"
+  end_date: "2024-12-31"
+  initial_capital: 10000
+  commission: 0.001          # 0.1% Kommission pro Trade
+  slippage: 0.0005           # 0.05% Slippage
+
+dashboard:
+  enabled: true
+  host: "0.0.0.0"
+  port: 8050
+  debug: false
+
+logging:
+  level: "INFO"              # DEBUG | INFO | WARNING | ERROR
+  file: "logs/trading_bot.log"
+  max_bytes: 10485760        # 10 MB
+  backup_count: 5
