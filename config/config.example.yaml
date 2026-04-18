@@ -1,7 +1,7 @@
 # =============================================================
 # Trading Bot – Konfigurationsdatei
 # Kopiere diese Datei nach config/config.yaml und passe sie an.
-# NIEMALS config/config.yaml in Git committen (steht in .gitignore)!
+# NIEMALS config/config.yaml in Git committen!
 # =============================================================
 
 exchange:
@@ -14,11 +14,12 @@ trading:
   mode: "backtest"       # "live" | "backtest" | "paper"
   symbol: "BTC/USDT"
   timeframe: "1h"        # 1m, 5m, 15m, 1h, 4h, 1d
+  strategy: "fibonacci_confluence"  # "fibonacci_confluence" | "rsi_macd"
 
 fibonacci:
-  swing_window: 10           # Candles für Swing-Erkennung
-  use_wma: true              # WMA-geglättete Preise verwenden
-  wma_period: 14             # WMA-Periode
+  swing_window: 10
+  use_wma: true
+  wma_period: 14
   levels_retracement:
     - 0.0
     - 0.236
@@ -33,7 +34,7 @@ fibonacci:
     - 1.618
     - 2.0
     - 2.618
-  confluence_tolerance: 0.003  # 0.3% Toleranz für Level-Confluence
+  confluence_tolerance: 0.003
 
 patterns:
   enabled:
@@ -43,23 +44,48 @@ patterns:
     - "double_top"
     - "double_bottom"
     - "head_and_shoulders"
-  swing_order: 5             # argrelextrema order-Parameter
+  swing_order: 5
+  tolerance: 0.02
+
+rsi_macd:
+  rsi_period: 14
+  rsi_oversold: 30
+  rsi_overbought: 70
+  macd_fast: 12
+  macd_slow: 26
+  macd_signal: 9
+  atr_period: 14
 
 risk:
-  max_position_size: 0.1     # Max 10% des Kapitals pro Trade
-  risk_per_trade: 0.02       # 2% Kapitalrisiko pro Trade
-  stop_loss_atr_mult: 2.0    # Stop-Loss = 2x ATR unter Entry
-  take_profit_ratio: 2.0     # Risk:Reward = 1:2
+  max_position_size: 0.1
+  risk_per_trade: 0.02
+  stop_loss_atr_mult: 2.0
+  take_profit_ratio: 2.0
   max_open_positions: 3
-  max_daily_drawdown: 0.05   # Handel stoppen bei 5% Tagesverlust
-  position_spacing: 0.005    # Min. 0.5% Preisabstand zwischen Entries
+  max_daily_drawdown: 0.05
+  position_spacing: 0.005
 
 backtest:
   start_date: "2023-01-01"
   end_date: "2024-12-31"
   initial_capital: 10000
-  commission: 0.001          # 0.1% Kommission pro Trade
-  slippage: 0.0005           # 0.05% Slippage
+  commission: 0.001
+  slippage: 0.0005
+
+optimize:
+  param_grid:
+    "fibonacci.confluence_tolerance": [0.002, 0.003, 0.005]
+    "risk.stop_loss_atr_mult": [1.5, 2.0, 2.5]
+    "risk.take_profit_ratio": [1.5, 2.0, 3.0]
+  metric: "sharpe_ratio"    # "sharpe_ratio" | "total_return" | "win_rate"
+  walk_forward:
+    enabled: false
+    train_periods: 1000
+    test_periods: 250
+
+telegram:
+  bot_token: ""            # Besser: Umgebungsvariable TELEGRAM_BOT_TOKEN
+  chat_id: ""              # Besser: Umgebungsvariable TELEGRAM_CHAT_ID
 
 dashboard:
   enabled: true
@@ -68,7 +94,7 @@ dashboard:
   debug: false
 
 logging:
-  level: "INFO"              # DEBUG | INFO | WARNING | ERROR
+  level: "INFO"
   file: "logs/trading_bot.log"
-  max_bytes: 10485760        # 10 MB
+  max_bytes: 10485760
   backup_count: 5
