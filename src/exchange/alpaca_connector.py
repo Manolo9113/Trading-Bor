@@ -1,10 +1,4 @@
-"""Alpaca-Connector fuer US-Aktien (Paper + Live Trading).
-
-Nutzt das offizielle alpaca-py SDK.
-Paper-Trading ist standardmaessig aktiv (sandbox=true in config).
-
-Doku: https://docs.alpaca.markets/
-"""
+"""Alpaca-Connector fuer US-Aktien (Paper + Live Trading)."""
 
 from __future__ import annotations
 
@@ -17,12 +11,8 @@ import pandas as pd
 
 try:
     from alpaca.trading.client import TradingClient
-    from alpaca.trading.requests import (
-        MarketOrderRequest,
-        LimitOrderRequest,
-        GetOrdersRequest,
-    )
-    from alpaca.trading.enums import OrderSide, TimeInForce, QueryOrderStatus
+    from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest
+    from alpaca.trading.enums import OrderSide, TimeInForce
     from alpaca.data.historical import StockHistoricalDataClient
     from alpaca.data.requests import StockBarsRequest
     from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
@@ -32,77 +22,49 @@ except ImportError:
 
 
 class AlpacaConnector:
-    """Verbindet den Bot mit Alpaca (Paper oder Live).
-
-    Paper-Trading:  sandbox=true  in config  (empfohlen zum Testen)
-    Live-Trading:   sandbox=false + echte API-Keys
-    """
-
-    PAPER_URL = "https://paper-api.alpaca.markets"
-    LIVE_URL  = "https://api.alpaca.markets"
+    """Verbindet den Bot mit Alpaca (Paper oder Live)."""
 
     def __init__(self, config: dict) -> None:
         self._logger = logging.getLogger(self.__class__.__name__)
 
         if not ALPACA_AVAILABLE:
-            self._logger.warning(
-                "alpaca-py nicht installiert. Bitte: pip install alpaca-py"
-            )
+            self._logger.warning("alpaca-py nicht installiert: pip install alpaca-py")
             self._trading = None
-            self._data    = None
+            self._data = None
             return
 
-        api_key = (
-            config.get("api_key")
-            or os.getenv("ALPACA_API_KEY", "")
-        )
-        secret = (
-            config.get("secret")
-            or os.getenv("ALPACA_SECRET_KEY", "")
-        )
+        api_key = config.get("api_key") or os.getenv("ALPACA_API_KEY", "")
+        secret  = config.get("secret")  or os.getenv("ALPACA_SECRET_KEY", "")
         self.paper: bool = config.get("sandbox", True)
 
         if not api_key or not secret:
-            self._logger.error(
-                "Alpaca API-Key oder Secret fehlt. "
-                "Setze ALPACA_API_KEY + ALPACA_SECRET_KEY als Umgebungsvariable."
-            )
+            self._logger.error("ALPACA_API_KEY oder ALPACA_SECRET_KEY fehlt.")
             self._trading = None
-            self._data    = None
+            self._data = None
             return
 
-        self._trading = TradingClient(
-            api_key=api_key,
-            secret_key=secret,
-            paper=self.paper,
-        )
-        self._data = StockHistoricalDataClient(
-            api_key=api_key,
-            secret_key=secret,
-        )
-        mode = "PAPER" if self.paper else "LIVE"
-        self._logger.info(f"Alpaca verbunden [{mode}]")
+        self._trading = TradingClient(api_key=api_key, secret_key=secret, paper=self.paper)
+        self._data    = StockHistoricalDataClient(api_key=api_key, secret_key=secret)
+        self._logger.info(f"Alpaca verbunden [{'PAPER' if self.paper else 'LIVE'}]")
 
     # ------------------------------------------------------------------
     # Konto
     # ------------------------------------------------------------------
 
     def get_account(self) -> dict:
-        """Gibt Kontoinformationen zurueck (Kapital, Kaufkraft, P&L)."""
         if not self._trading:
             return {}
         try:
             acc = self._trading.get_account()
             return {
-                "equity":        float(acc.equity),
-                "cash":          float(acc.cash),
-                "buying_power":  float(acc.buying_power),
-                "pnl_today":     float(acc.equity) - float(acc.last_equity),
-                "currency":      "USD",
-                "paper":         self.paper,
+                "equity":       float(acc.equity),
+                "cash":         float(acc.cash),
+                "buying_power": float(acc.buying_power),
+                "pnl_today":    float(acc.equity) - float(acc.last_equity),
+                "paper":        self.paper,
             }
         except Exception as exc:
-            self._logger.error(f"get_account fehlgeschlagen: {exc}")
+            self._logger.error(f"get_account: {exc}")
             return {}
 
     # ------------------------------------------------------------------
@@ -110,11 +72,9 @@ class AlpacaConnector:
     # ------------------------------------------------------------------
 
     def get_positions(self) -> list[dict]:
-        """Alle offenen Positionen."""
         if not self._trading:
             return []
         try:
-            positions = self._trading.get_all_positions()
             return [
                 {
                     "symbol":    p.symbol,
@@ -125,14 +85,13 @@ class AlpacaConnector:
                     "pnl":       float(p.unrealized_pl),
                     "pnl_pct":   float(p.unrealized_plpc) * 100,
                 }
-                for p in positions
+                for p in self._trading.get_all_positions()
             ]
         except Exception as exc:
-            self._logger.error(f"get_positions fehlgeschlagen: {exc}")
+            self._logger.error(f"get_positions: {exc}")
             return []
 
     def close_position(self, symbol: str) -> bool:
-        """Schliesst eine offene Position."""
         if not self._trading:
             return False
         try:
@@ -140,11 +99,10 @@ class AlpacaConnector:
             self._logger.info(f"Position geschlossen: {symbol}")
             return True
         except Exception as exc:
-            self._logger.error(f"close_position {symbol} fehlgeschlagen: {exc}")
+            self._logger.error(f"close_position {symbol}: {exc}")
             return False
 
     def close_all_positions(self) -> bool:
-        """Schliesst alle offenen Positionen (End-of-Day)."""
         if not self._trading:
             return False
         try:
@@ -152,7 +110,7 @@ class AlpacaConnector:
             self._logger.info("Alle Positionen geschlossen.")
             return True
         except Exception as exc:
-            self._logger.error(f"close_all_positions fehlgeschlagen: {exc}")
+            self._logger.error(f"close_all_positions: {exc}")
             return False
 
     # ------------------------------------------------------------------
@@ -160,89 +118,56 @@ class AlpacaConnector:
     # ------------------------------------------------------------------
 
     def buy_market(self, symbol: str, qty: float) -> Optional[dict]:
-        """Market-Buy-Order."""
         return self._place_market(symbol, qty, OrderSide.BUY)
 
     def sell_market(self, symbol: str, qty: float) -> Optional[dict]:
-        """Market-Sell-Order."""
         return self._place_market(symbol, qty, OrderSide.SELL)
 
     def buy_limit(self, symbol: str, qty: float, limit_price: float) -> Optional[dict]:
-        """Limit-Buy-Order."""
         return self._place_limit(symbol, qty, limit_price, OrderSide.BUY)
 
     def sell_limit(self, symbol: str, qty: float, limit_price: float) -> Optional[dict]:
-        """Limit-Sell-Order."""
         return self._place_limit(symbol, qty, limit_price, OrderSide.SELL)
 
     def _place_market(self, symbol: str, qty: float, side) -> Optional[dict]:
         if not self._trading:
             self._logger.info(f"[DUMMY] Market {side.value} {qty}x {symbol}")
-            return {"status": "dummy", "symbol": symbol, "qty": qty}
+            return {"status": "dummy", "symbol": symbol}
         try:
-            req = MarketOrderRequest(
-                symbol=symbol,
-                qty=qty,
-                side=side,
-                time_in_force=TimeInForce.DAY,
-            )
+            req = MarketOrderRequest(symbol=symbol, qty=qty, side=side,
+                                     time_in_force=TimeInForce.DAY)
             order = self._trading.submit_order(req)
-            self._logger.info(
-                f"Order: {side.value.upper()} {qty}x {symbol} "
-                f"[Market] ID={order.id}"
-            )
-            return {
-                "id":     str(order.id),
-                "symbol": symbol,
-                "qty":    qty,
-                "side":   side.value,
-                "type":   "market",
-                "status": order.status.value,
-            }
+            self._logger.info(f"{side.value.upper()} {qty}x {symbol} [Market] {order.id}")
+            return {"id": str(order.id), "symbol": symbol, "qty": qty,
+                    "side": side.value, "status": order.status.value}
         except Exception as exc:
-            self._logger.error(f"Order fehlgeschlagen ({symbol}): {exc}")
+            self._logger.error(f"Order {symbol}: {exc}")
             return None
 
     def _place_limit(self, symbol: str, qty: float, price: float, side) -> Optional[dict]:
         if not self._trading:
             self._logger.info(f"[DUMMY] Limit {side.value} {qty}x {symbol} @ {price}")
-            return {"status": "dummy", "symbol": symbol, "qty": qty, "price": price}
+            return {"status": "dummy", "symbol": symbol, "price": price}
         try:
-            req = LimitOrderRequest(
-                symbol=symbol,
-                qty=qty,
-                side=side,
-                limit_price=round(price, 2),
-                time_in_force=TimeInForce.DAY,
-            )
+            req = LimitOrderRequest(symbol=symbol, qty=qty, side=side,
+                                    limit_price=round(price, 2),
+                                    time_in_force=TimeInForce.DAY)
             order = self._trading.submit_order(req)
-            self._logger.info(
-                f"Order: {side.value.upper()} {qty}x {symbol} "
-                f"@ ${price:.2f} [Limit] ID={order.id}"
-            )
-            return {
-                "id":     str(order.id),
-                "symbol": symbol,
-                "qty":    qty,
-                "side":   side.value,
-                "type":   "limit",
-                "price":  price,
-                "status": order.status.value,
-            }
+            self._logger.info(f"{side.value.upper()} {qty}x {symbol} @ ${price:.2f} {order.id}")
+            return {"id": str(order.id), "symbol": symbol, "qty": qty,
+                    "side": side.value, "price": price, "status": order.status.value}
         except Exception as exc:
-            self._logger.error(f"Limit-Order fehlgeschlagen ({symbol}): {exc}")
+            self._logger.error(f"Limit-Order {symbol}: {exc}")
             return None
 
     def cancel_all_orders(self) -> bool:
-        """Storniert alle offenen Orders."""
         if not self._trading:
             return False
         try:
             self._trading.cancel_orders()
-            self._logger.info("Alle offenen Orders storniert.")
             return True
         except Exception as exc:
-            self._logger.error(f"cancel_all_orders fehlgeschlagen: {exc}")
+            self._logger.error(f"cancel_all_orders: {exc}")
             return False
 
     # ------------------------------------------------------------------
@@ -255,39 +180,23 @@ class AlpacaConnector:
         timeframe: str = "1Day",
         limit: int = 100,
     ) -> Optional[pd.DataFrame]:
-        """Holt historische OHLCV-Bars von Alpaca.
-
-        Args:
-            symbol:    Ticker, z.B. "TSLA".
-            timeframe: "1Min" | "5Min" | "15Min" | "1Hour" | "1Day".
-            limit:     Anzahl Bars.
-        """
         if not self._data:
             return self._dummy_ohlcv(limit)
         try:
             tf = self._parse_timeframe(timeframe)
             start = datetime.utcnow() - timedelta(days=limit + 5)
-            req = StockBarsRequest(
-                symbol_or_symbols=symbol,
-                timeframe=tf,
-                start=start,
-                limit=limit,
-            )
+            req = StockBarsRequest(symbol_or_symbols=symbol, timeframe=tf,
+                                   start=start, limit=limit)
             bars = self._data.get_stock_bars(req)
             df = bars.df
             if isinstance(df.index, pd.MultiIndex):
                 df = df.xs(symbol, level=0)
-            df = df.rename(columns={
-                "open": "open", "high": "high",
-                "low": "low", "close": "close", "volume": "volume",
-            })
             return df[["open", "high", "low", "close", "volume"]].tail(limit)
         except Exception as exc:
-            self._logger.error(f"fetch_ohlcv fehlgeschlagen ({symbol}): {exc}")
+            self._logger.error(f"fetch_ohlcv {symbol}: {exc}")
             return None
 
     def get_latest_price(self, symbol: str) -> Optional[float]:
-        """Aktueller Kurs via letzter Bar."""
         df = self.fetch_ohlcv(symbol, timeframe="1Min", limit=1)
         if df is not None and not df.empty:
             return float(df["close"].iloc[-1])
@@ -295,7 +204,6 @@ class AlpacaConnector:
 
     @staticmethod
     def _parse_timeframe(tf: str):
-        """Konvertiert String-Timeframe in Alpaca TimeFrame."""
         mapping = {
             "1Min":  TimeFrame(1,  TimeFrameUnit.Minute),
             "5Min":  TimeFrame(5,  TimeFrameUnit.Minute),
@@ -307,7 +215,6 @@ class AlpacaConnector:
 
     @staticmethod
     def _dummy_ohlcv(n: int = 100) -> pd.DataFrame:
-        """Synthetische Daten wenn Alpaca nicht verfuegbar."""
         import numpy as np
         dates = pd.date_range(end=pd.Timestamp.now(), periods=n, freq="1D")
         close = 200 + np.cumsum(np.random.randn(n) * 2)
@@ -324,24 +231,20 @@ class AlpacaConnector:
     # ------------------------------------------------------------------
 
     def is_market_open(self) -> bool:
-        """Prueft ob der US-Aktienmarkt gerade offen ist."""
         if not self._trading:
             return False
         try:
-            clock = self._trading.get_clock()
-            return clock.is_open
+            return self._trading.get_clock().is_open
         except Exception:
             return False
 
     def time_to_open(self) -> Optional[int]:
-        """Sekunden bis Marktoeffnung (oder 0 wenn offen)."""
         if not self._trading:
             return None
         try:
             clock = self._trading.get_clock()
             if clock.is_open:
                 return 0
-            delta = clock.next_open - clock.timestamp
-            return int(delta.total_seconds())
+            return int((clock.next_open - clock.timestamp).total_seconds())
         except Exception:
             return None
