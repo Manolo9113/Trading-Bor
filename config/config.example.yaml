@@ -1,0 +1,147 @@
+# =============================================================
+# Trading Bot – Konfiguration
+# cp config/config.example.yaml config/config.yaml
+# =============================================================
+
+exchange:
+  name: "binance"
+  api_key: ""
+  secret: ""
+  sandbox: true
+
+trading:
+  mode: "backtest"
+  symbol: "BTC/USDT"
+  timeframe: "1h"
+  strategy: "fibonacci_confluence"
+
+# ── Alpaca (US-Aktien) ───────────────────────────────────────
+alpaca:
+  api_key: ""          # ALPACA_API_KEY  (Env-Var bevorzugt)
+  secret: ""           # ALPACA_SECRET_KEY
+  sandbox: true        # true = Paper-Trading
+  timeframe: "1Day"    # 1Min | 5Min | 15Min | 1Hour | 1Day
+
+  # Positionsgroesse pro Aktie (Anteil Gesamtkapital)
+  position_size_pct: 0.05   # 5% pro Trade
+  max_positions: 5           # max. 5 gleichzeitige Positionen
+  close_eod: true            # Alle Positionen bei Marktschluss schliessen
+
+# ── Interactive Brokers ──────────────────────────────────────
+ibkr:
+  host: "127.0.0.1"
+  port: 7497             # TWS Paper: 7497 | TWS Live: 7496
+                         # IB Gateway Paper: 4002 | IB Gateway Live: 4001
+  client_id: 1
+  paper: true
+  currency: "USD"
+  exchange: "SMART"
+
+# ── Steuer / Tax ─────────────────────────────────────────────
+tax:
+  enabled: true
+  output_dir: "data/tax"   # Verzeichnis fuer Steuer-CSV
+  base_currency: "USD"
+  # EUR-Wechselkurs wird in Echtzeit nicht abgerufen.
+  # Trage den Tageskurs manuell ein oder nutze eine FX-API.
+  default_fx_rate_usd_eur: 0.92
+
+stock_momentum:
+  ema_fast: 20
+  ema_slow: 50
+  ema_trend: 200
+  rsi_period: 14
+  rsi_min: 45
+  rsi_max: 70
+  atr_period: 14
+
+fibonacci:
+  swing_window: 10
+  use_wma: true
+  wma_period: 14
+  levels_retracement: [0.0, 0.236, 0.382, 0.5, 0.618, 0.786, 1.0]
+  levels_extension: [1.272, 1.414, 1.618, 2.0, 2.618]
+  confluence_tolerance: 0.003
+
+patterns:
+  enabled:
+    - "engulfing"
+    - "hammer"
+    - "shooting_star"
+    - "double_top"
+    - "double_bottom"
+    - "head_and_shoulders"
+  swing_order: 5
+  tolerance: 0.02
+
+rsi_macd:
+  rsi_period: 14
+  rsi_oversold: 30
+  rsi_overbought: 70
+  macd_fast: 12
+  macd_slow: 26
+  macd_signal: 9
+  atr_period: 14
+
+risk:
+  max_position_size: 0.1
+  risk_per_trade: 0.02
+  stop_loss_atr_mult: 2.0
+  take_profit_ratio: 1.5
+  max_open_positions: 5
+  max_daily_drawdown: 0.05
+  position_spacing: 0.005
+
+backtest:
+  start_date: "2023-01-01"
+  end_date: "2024-12-31"
+  initial_capital: 10000
+  commission: 0.001
+  slippage: 0.0005
+
+optimize:
+  param_grid:
+    "fibonacci.confluence_tolerance": [0.002, 0.003, 0.005]
+    "risk.stop_loss_atr_mult": [1.5, 2.0, 2.5]
+    "risk.take_profit_ratio": [1.5, 2.0, 3.0]
+  metric: "sharpe_ratio"
+  walk_forward:
+    enabled: false
+    train_periods: 1000
+    test_periods: 250
+
+screener_api:
+  base_url: ""          # Railway-URL deines Screener-Services
+  api_key: ""
+  timeout: 30
+  daytrading:
+    top_n: 15
+    min_score: 55
+    min_atr_pct: 2.0
+    min_volume_m: 10.0
+    exclude_leveraged_etfs: true
+  macro_filter:
+    enabled: true
+    skip_on_risk_off: true
+
+morning_scan:
+  run_time: "08:30"
+  notify_telegram: true
+  save_to_file: true
+  file_path: "data/watchlist_{date}.csv"
+
+telegram:
+  bot_token: ""
+  chat_id: ""
+
+dashboard:
+  enabled: true
+  host: "0.0.0.0"
+  port: 8050
+  debug: false
+
+logging:
+  level: "INFO"
+  file: "logs/trading_bot.log"
+  max_bytes: 10485760
+  backup_count: 5
