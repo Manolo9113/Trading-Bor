@@ -1,32 +1,71 @@
 version: "3.9"
 
-services:
-  trading-bot:
-    build: .
-    container_name: trading-bot
-    restart: unless-stopped
-    volumes:
-      - ./config/config.yaml:/app/config/config.yaml:ro
-      - ./logs:/app/logs
-      - ./data:/app/data
-    environment:
-      - EXCHANGE_API_KEY=${EXCHANGE_API_KEY}
-      - EXCHANGE_SECRET=${EXCHANGE_SECRET}
-    command: python main.py --mode live
+# Gemeinsame Umgebungsvariablen
+x-common-env: &common-env
+  ALPACA_API_KEY:         ${ALPACA_API_KEY}
+  ALPACA_SECRET_KEY:      ${ALPACA_SECRET_KEY}
+  TELEGRAM_BOT_TOKEN:     ${TELEGRAM_BOT_TOKEN:-}
+  TELEGRAM_CHAT_ID:       ${TELEGRAM_CHAT_ID:-}
+  SCREENER_API_URL:       ${SCREENER_API_URL:-}
+  SCREENER_API_KEY:       ${SCREENER_API_KEY:-}
 
+# Gemeinsame Volumes
+x-common-volumes: &common-volumes
+  - ./config/config.yaml:/app/config/config.yaml:ro
+  - ./logs:/app/logs
+  - ./data:/app/data
+
+services:
+
+  # ── Alpaca Paper-Trading ──────────────────────────────────
+  alpaca-paper:
+    build: .
+    container_name: alpaca-paper
+    restart: unless-stopped
+    volumes: *common-volumes
+    environment: *common-env
+    command: python main.py --mode alpaca_paper
+
+  # ── Alpaca Live-Trading ───────────────────────────────────
+  alpaca-live:
+    build: .
+    container_name: alpaca-live
+    restart: unless-stopped
+    volumes: *common-volumes
+    environment: *common-env
+    command: python main.py --mode alpaca_live
+    profiles: [live]   # nur mit: docker compose --profile live up alpaca-live
+
+  # ── Morning Scan (taeglich ausfuehren) ───────────────────
+  morning-scan:
+    build: .
+    container_name: morning-scan
+    restart: "no"
+    volumes: *common-volumes
+    environment: *common-env
+    command: python main.py --mode morning_scan
+
+  # ── Dashboard ─────────────────────────────────────────────
   dashboard:
     build: .
     container_name: trading-dashboard
     restart: unless-stopped
     ports:
       - "8050:8050"
-    volumes:
-      - ./config/config.yaml:/app/config/config.yaml:ro
-      - ./logs:/app/logs
-      - ./data:/app/data
-    environment:
-      - EXCHANGE_API_KEY=${EXCHANGE_API_KEY}
-      - EXCHANGE_SECRET=${EXCHANGE_SECRET}
+    volumes: *common-volumes
+    environment: *common-env
     command: python main.py --mode dashboard
-    depends_on:
-      - trading-bot
+
+  # ── IBKR Paper-Trading ────────────────────────────────────
+  # HINWEIS: Erfordert TWS oder IB Gateway auf dem HOST-Rechner.
+  # Der Container verbindet sich mit host.docker.internal:7497.
+  ibkr-paper:
+    build: .
+    container_name: ibkr-paper
+    restart: unless-stopped
+    volumes: *common-volumes
+    environment: *common-env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: python main.py --mode ibkr_paper
+    profiles: [ibkr]
