@@ -27,6 +27,25 @@ alpaca:
   max_positions: 5           # max. 5 gleichzeitige Positionen
   close_eod: true            # Alle Positionen bei Marktschluss schliessen
 
+# ── Interactive Brokers ──────────────────────────────────────
+ibkr:
+  host: "127.0.0.1"
+  port: 7497             # TWS Paper: 7497 | TWS Live: 7496
+                         # IB Gateway Paper: 4002 | IB Gateway Live: 4001
+  client_id: 1
+  paper: true
+  currency: "USD"
+  exchange: "SMART"
+
+# ── Steuer / Tax ─────────────────────────────────────────────
+tax:
+  enabled: true
+  output_dir: "data/tax"   # Verzeichnis fuer Steuer-CSV
+  base_currency: "USD"
+  # EUR-Wechselkurs wird in Echtzeit nicht abgerufen.
+  # Trage den Tageskurs manuell ein oder nutze eine FX-API.
+  default_fx_rate_usd_eur: 0.92
+
 stock_momentum:
   ema_fast: 20
   ema_slow: 50
