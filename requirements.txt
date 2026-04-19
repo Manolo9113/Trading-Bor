@@ -5,6 +5,9 @@ pandas>=2.1.0
 scipy>=1.11.0
 pyarrow>=14.0.0
 
+# Alpaca (US-Aktien Live- & Paper-Trading)
+alpaca-py>=0.20.0
+
 # Dashboard
 dash>=2.14.0
 dash-bootstrap-components>=1.5.0
