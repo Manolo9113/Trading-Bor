@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import csv
 import logging
-from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -51,7 +50,6 @@ class PaperTrader:
         price = float(df["close"].iloc[-1])
         ts = str(df.index[-1])
 
-        # Offene Position auf SL/TP pruefen
         if self._open_trade is not None:
             t = self._open_trade
             exit_price = None
@@ -83,7 +81,6 @@ class PaperTrader:
                 )
                 self._open_trade = None
 
-        # Neues Signal
         if self._open_trade is None:
             signal = self.strategy.generate_signal(df)
             if signal and signal.is_entry:

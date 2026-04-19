@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 import pandas as pd
 
@@ -23,7 +22,10 @@ _logger = logging.getLogger(__name__)
 def create_app(config: dict):
     """Erstellt und konfiguriert die Dash-App."""
     if not DASH_AVAILABLE:
-        raise ImportError("dash und plotly sind erforderlich: pip install dash plotly dash-bootstrap-components")
+        raise ImportError(
+            "dash und plotly sind erforderlich: "
+            "pip install dash plotly dash-bootstrap-components"
+        )
 
     from ..exchange.connector import ExchangeConnector
     from ..indicators.fibonacci import FibonacciCalculator
@@ -48,10 +50,15 @@ def create_app(config: dict):
 
     app.layout = dbc.Container([
         dbc.Row([
-            dbc.Col(html.H2(f"Trading Bot – {symbol} {timeframe}",
-                           className="text-light mt-3"), width=8),
-            dbc.Col(dbc.Badge(id="signal-badge", color="secondary",
-                             className="mt-4 fs-6"), width=4, className="text-end"),
+            dbc.Col(
+                html.H2(f"Trading Bot - {symbol} {timeframe}", className="text-light mt-3"),
+                width=8,
+            ),
+            dbc.Col(
+                dbc.Badge(id="signal-badge", color="secondary", className="mt-4 fs-6"),
+                width=4,
+                className="text-end",
+            ),
         ]),
         dbc.Row([
             dbc.Col(dcc.Graph(id="price-chart", style={"height": "500px"}), width=12),
@@ -72,7 +79,7 @@ def create_app(config: dict):
         Output("signal-log", "children"),
         Input("interval", "n_intervals"),
     )
-    def update_chart(n):
+    def update_chart(_n):
         df = connector.fetch_ohlcv(symbol, timeframe, limit=100)
         if df is None or df.empty:
             empty_fig = go.Figure()
@@ -104,13 +111,12 @@ def create_app(config: dict):
 
 def _build_chart(
     df: pd.DataFrame,
-    fib_calc: "FibonacciCalculator",
+    fib_calc,
     symbol: str,
-) -> "go.Figure":
+):
     """Baut Candlestick-Chart mit Fibonacci-Linien."""
     fig = go.Figure()
 
-    # Candlestick
     fig.add_trace(go.Candlestick(
         x=df.index,
         open=df["open"],
@@ -122,13 +128,11 @@ def _build_chart(
         decreasing_line_color="#ef5350",
     ))
 
-    # Fibonacci-Linien
-    zones = fib_calc.calculate(df, n_recent=1)
     fib_colors = {
         0.0: "#ffffff", 0.236: "#90caf9", 0.382: "#42a5f5",
         0.5: "#ffeb3b", 0.618: "#ff9800", 0.786: "#ef5350", 1.0: "#ffffff",
     }
-    for zone in zones:
+    for zone in fib_calc.calculate(df, n_recent=1):
         for lvl in zone.retracement_levels:
             fig.add_hline(
                 y=lvl.price,

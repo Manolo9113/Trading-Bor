@@ -1,15 +1,14 @@
 """Tests fuer DataManager."""
 
+import numpy as np
 import pandas as pd
-import pytest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from src.data.data_manager import DataManager
 
 
 def _dummy_df(n: int = 50) -> pd.DataFrame:
-    import numpy as np
     dates = pd.date_range("2023-01-01", periods=n, freq="1h")
     close = 100 + np.random.randn(n).cumsum()
     return pd.DataFrame({
@@ -22,8 +21,7 @@ def _dummy_df(n: int = 50) -> pd.DataFrame:
 
 
 class TestDataManager:
-    def setup_method(self, tmp_path_factory):
-        self.tmp_dir = str(pytest.tmp_path_factory if hasattr(pytest, 'tmp_path_factory') else Path("/tmp/test_data"))
+    def setup_method(self):
         self.dm = DataManager(data_dir="/tmp/test_dm_cache")
 
     def test_list_cached_returns_list(self):
@@ -72,10 +70,7 @@ class TestDataManager:
 
     def test_clean_drops_na(self):
         df = _dummy_df(20)
-        df.iloc[5, 0] = float("nan")
-        df.iloc[5, 1] = float("nan")
-        df.iloc[5, 2] = float("nan")
-        df.iloc[5, 3] = float("nan")
+        df.iloc[5, :] = float("nan")
         cleaned = DataManager._clean(df)
         assert not cleaned.isna().any().any()
 
