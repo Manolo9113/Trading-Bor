@@ -1,7 +1,6 @@
 """Tests fuer ScreenerClient."""
 
 from unittest.mock import MagicMock, patch
-import pytest
 
 from src.screener_client import ScreenerClient, WatchlistEntry
 

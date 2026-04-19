@@ -2,7 +2,6 @@
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from src.strategies.rsi_macd_strategy import RsiMacdStrategy
 from src.strategies.base_strategy import SignalType

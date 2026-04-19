@@ -2,9 +2,8 @@
 
 import numpy as np
 import pandas as pd
-import pytest
 
-from src.indicators.patterns import PatternDetector, PatternSignal
+from src.indicators.patterns import PatternDetector
 
 
 DEFAULT_CONFIG = {

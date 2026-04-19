@@ -2,8 +2,6 @@
 
 import numpy as np
 import pandas as pd
-import pytest
-from typing import Optional
 
 from src.strategies.base_strategy import BaseStrategy, Signal, SignalType
 from src.strategies.multi_strategy import MultiStrategy

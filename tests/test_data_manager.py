@@ -2,7 +2,6 @@
 
 import numpy as np
 import pandas as pd
-from pathlib import Path
 from unittest.mock import MagicMock
 
 from src.data.data_manager import DataManager

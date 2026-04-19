@@ -15,7 +15,6 @@ from typing import Any
 import pandas as pd
 
 from .backtester import Backtester, BacktestResult
-from ..strategies.base_strategy import BaseStrategy
 
 
 @dataclass

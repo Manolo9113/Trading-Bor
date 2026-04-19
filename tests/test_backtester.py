@@ -2,7 +2,6 @@
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from src.backtest.backtester import Backtester, BacktestResult
 from src.strategies.base_strategy import BaseStrategy, Signal, SignalType

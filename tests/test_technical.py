@@ -2,7 +2,6 @@
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from src.indicators.technical import rsi, macd, atr, bollinger_bands, ema, sma, stochastic
 

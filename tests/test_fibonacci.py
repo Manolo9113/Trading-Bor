@@ -2,9 +2,8 @@
 
 import numpy as np
 import pandas as pd
-import pytest
 
-from src.indicators.fibonacci import FibonacciCalculator, FibonacciZone
+from src.indicators.fibonacci import FibonacciCalculator
 
 
 DEFAULT_CONFIG = {

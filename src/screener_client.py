@@ -7,7 +7,7 @@ als strukturierte WatchlistEntry-Objekte auf.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 import requests
@@ -109,10 +109,10 @@ class ScreenerClient:
                 entries.append(WatchlistEntry(
                     ticker=pick["ticker"],
                     name=pick.get("name", pick["ticker"]),
-                    price=float(pick.get("price", 0)),
-                    score=float(pick.get("score", 0)),
-                    atr_pct=float(pick.get("atr_pct") or 0),
-                    volume_m=float(pick.get("volume_m", 0)),
+                    price=float(pick["price"]),
+                    score=float(pick["score"]),
+                    atr_pct=float(pick["atr_pct"] or 0),
+                    volume_m=float(pick["volume_m"]),
                     beta=float(pick.get("beta", 1.0)),
                     rel_volume=pick.get("rel_volume"),
                     mktcap_b=float(pick.get("mktcap_b", 0)),

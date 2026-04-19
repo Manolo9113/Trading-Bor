@@ -10,7 +10,6 @@ import numpy as np
 import pandas as pd
 
 from ..strategies.base_strategy import BaseStrategy, SignalType
-from ..risk.risk_manager import Trade
 
 
 @dataclass

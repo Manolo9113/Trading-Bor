@@ -15,8 +15,8 @@ import numpy as np
 import pandas as pd
 
 from .base_strategy import BaseStrategy, Signal, SignalType
-from ..indicators.fibonacci import FibonacciCalculator, FibonacciZone
-from ..indicators.patterns import PatternDetector, PatternSignal
+from ..indicators.fibonacci import FibonacciCalculator
+from ..indicators.patterns import PatternDetector
 from ..risk.risk_manager import RiskManager
 
 
