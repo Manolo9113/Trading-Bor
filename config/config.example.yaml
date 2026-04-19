@@ -5,35 +5,23 @@
 # =============================================================
 
 exchange:
-  name: "binance"        # CCXT-kompatibler Exchange-Name
-  api_key: ""            # Besser: Umgebungsvariable EXCHANGE_API_KEY
-  secret: ""             # Besser: Umgebungsvariable EXCHANGE_SECRET
-  sandbox: true          # true = Testnet, false = Live
+  name: "binance"
+  api_key: ""
+  secret: ""
+  sandbox: true
 
 trading:
-  mode: "backtest"       # "live" | "backtest" | "paper"
+  mode: "backtest"
   symbol: "BTC/USDT"
-  timeframe: "1h"        # 1m, 5m, 15m, 1h, 4h, 1d
-  strategy: "fibonacci_confluence"  # "fibonacci_confluence" | "rsi_macd"
+  timeframe: "1h"
+  strategy: "fibonacci_confluence"
 
 fibonacci:
   swing_window: 10
   use_wma: true
   wma_period: 14
-  levels_retracement:
-    - 0.0
-    - 0.236
-    - 0.382
-    - 0.5
-    - 0.618
-    - 0.786
-    - 1.0
-  levels_extension:
-    - 1.272
-    - 1.414
-    - 1.618
-    - 2.0
-    - 2.618
+  levels_retracement: [0.0, 0.236, 0.382, 0.5, 0.618, 0.786, 1.0]
+  levels_extension: [1.272, 1.414, 1.618, 2.0, 2.618]
   confluence_tolerance: 0.003
 
 patterns:
@@ -77,15 +65,43 @@ optimize:
     "fibonacci.confluence_tolerance": [0.002, 0.003, 0.005]
     "risk.stop_loss_atr_mult": [1.5, 2.0, 2.5]
     "risk.take_profit_ratio": [1.5, 2.0, 3.0]
-  metric: "sharpe_ratio"    # "sharpe_ratio" | "total_return" | "win_rate"
+  metric: "sharpe_ratio"
   walk_forward:
     enabled: false
     train_periods: 1000
     test_periods: 250
 
+# ── MB-AktienScreener-API ────────────────────────────────────────────────────
+# Railway-URL deines zweiten Services, z.B.:
+#   https://mb-aktienscreener-api-production.up.railway.app
+screener_api:
+  base_url: ""                 # Pflicht fuer morning_scan-Modus
+  api_key: ""                  # Optional: STOCKSMB_API_KEY
+  timeout: 30
+
+  # Watchlist-Filter fuer den Morgen-Scan
+  daytrading:
+    top_n: 15
+    min_score: 55              # Nur Titel mit Score >= 55
+    min_atr_pct: 2.0           # Mindest 2% taegliche Bewegung
+    min_volume_m: 10.0         # Mindest 10M Shares/Tag
+    exclude_leveraged_etfs: true   # TQQQ, SQQQ etc. ausschliessen
+
+  # Makro-Filter: keinen Trade wenn Regime = Risk-Off
+  macro_filter:
+    enabled: true
+    skip_on_risk_off: true     # Kein Kauf bei invertierter Zinskurve
+
+# ── Morning-Scan-Zeitplan ────────────────────────────────────────────────────
+morning_scan:
+  run_time: "08:30"            # UTC – 30 Min vor US-Markteroeffnung (09:00 ET)
+  notify_telegram: true
+  save_to_file: true           # Watchlist als CSV in data/ speichern
+  file_path: "data/watchlist_{date}.csv"
+
 telegram:
-  bot_token: ""            # Besser: Umgebungsvariable TELEGRAM_BOT_TOKEN
-  chat_id: ""              # Besser: Umgebungsvariable TELEGRAM_CHAT_ID
+  bot_token: ""
+  chat_id: ""
 
 dashboard:
   enabled: true
