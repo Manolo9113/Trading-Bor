@@ -255,6 +255,23 @@ def run_morning_scan(config: dict, logger) -> None:
     if dt.get("exclude_leveraged_etfs", True):
         entries = [e for e in entries if e.typ != "ETF (Leveraged)"]
     client.print_watchlist(entries)
+
+    # Quality-Picks (Fundamental / Langfrist)
+    q_cfg = api_cfg.get("quality", {})
+    quality_picks = client.get_quality_picks(
+        top_n=q_cfg.get("top_n", 5),
+        min_score=q_cfg.get("min_score", 65),
+    )
+    client.print_picks(quality_picks, title="QUALITY PICKS (Langfrist)")
+
+    # Value-Picks (KGV, KBV, FCF)
+    v_cfg = api_cfg.get("value", {})
+    value_picks = client.get_value_picks(
+        top_n=v_cfg.get("top_n", 10),
+        min_score=v_cfg.get("min_score", 55),
+    )
+    client.print_picks(value_picks, title="VALUE PICKS")
+
     scan = config.get("morning_scan", {})
     if scan.get("save_to_file") and entries:
         from datetime import date
@@ -269,9 +286,15 @@ def run_morning_scan(config: dict, logger) -> None:
         logger.info(f"Gespeichert: {fp}")
     if scan.get("notify_telegram") and entries:
         notifier = TelegramNotifier(config)
-        lines = [f"*Morning Scan – {len(entries)} Titel*"]
+        lines = [f"*Morning Scan – {len(entries)} Tradeable*"]
         for i, e in enumerate(entries[:5], 1):
-            lines.append(f"{i}. *{e.ticker}* Score {e.score} | ATR {e.atr_pct:.1f}%")
+            lines.append(f"{i}. *{e.ticker}* Score {e.score} | ATR~{e.atr_pct:.1f}%")
+        if quality_picks:
+            lines.append(f"\n*Quality ({len(quality_picks)}):* " +
+                         ", ".join(p.ticker for p in quality_picks[:3]))
+        if value_picks:
+            lines.append(f"*Value ({len(value_picks)}):* " +
+                         ", ".join(p.ticker for p in value_picks[:3]))
         notifier.send_alert("\n".join(lines))
 
 

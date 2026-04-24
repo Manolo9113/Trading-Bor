@@ -110,16 +110,41 @@ optimize:
     train_periods: 1000
     test_periods: 250
 
+# ── MB-AktienScreener-Railway ────────────────────────────────
+# Repo:  https://github.com/Manolo9113/MB-AktienScreener-Railway
+# API:   https://<dein-projekt>.up.railway.app
+#
+# Endpoints die der Bot nutzt:
+#   GET /screener/tradeable  -> Daytrading-Watchlist (Volumen, Beta, Score)
+#   GET /screener/quality    -> Fundamentale Qualitaets-Picks
+#   GET /screener/value      -> Value-Picks (KGV, KBV, FCF-Yield)
+#   GET /signals             -> Makro-Regime (Risk-On / Risk-Off)
+#   GET /score/{ticker}      -> Einzel-Analyse
 screener_api:
-  base_url: ""          # Railway-URL deines Screener-Services
-  api_key: ""
+  base_url: ""          # z.B. https://mb-aktienscreener.up.railway.app
+  api_key: ""           # optional, falls Railway-Schutz aktiv
   timeout: 30
+
+  # /screener/tradeable  ->  Daytrading-Watchlist
+  # ATR% wird aus Beta geschaetzt (atr_pct ≈ beta * 0.9)
   daytrading:
     top_n: 15
     min_score: 55
-    min_atr_pct: 2.0
+    min_atr_pct: 1.5     # geschaetzter Mindestwert (basiert auf Beta)
     min_volume_m: 10.0
     exclude_leveraged_etfs: true
+
+  # /screener/quality  ->  Fundamentale Langfrist-Picks
+  quality:
+    top_n: 5
+    min_score: 65
+
+  # /screener/value  ->  Value-Picks fuer mittelfristiges Halten
+  value:
+    top_n: 10
+    min_score: 55
+
+  # /signals  ->  Makro-Filter vor jedem Trade
   macro_filter:
     enabled: true
     skip_on_risk_off: true
