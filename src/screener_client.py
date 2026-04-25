@@ -247,6 +247,129 @@ class ScreenerClient:
         return picks
 
     # ------------------------------------------------------------------
+    # Gist-basierte Watchlist  (Alternative zur REST-API)
+    # ------------------------------------------------------------------
+
+    def get_watchlist_from_gist(
+        self,
+        gist_id: str,
+        min_score: int = 50,
+        min_atr_pct: float = 1.5,
+        min_volume_m: float = 5.0,
+        top_n: int = 15,
+    ) -> list[WatchlistEntry]:
+        """Liest die Daytrading-Watchlist aus einem GitHub Gist.
+
+        Das Gist wird stündlich von update_gist.py (MB-AktienScreener-Railway)
+        befüllt und enthält vorberechnete ATR%-Werte.
+
+        Args:
+            gist_id:      GitHub Gist-ID (aus GIST_ID Env-Variable).
+            min_score:    Mindest-Score (0-100).
+            min_atr_pct:  Mindest-ATR%.
+            min_volume_m: Mindest-Volumen in Mio./Tag.
+            top_n:        Maximale Anzahl Ergebnisse.
+        """
+        url = f"https://api.github.com/gists/{gist_id}"
+        headers = {}
+        if self.api_key:
+            headers["Authorization"] = f"token {self.api_key}"
+
+        try:
+            resp = self._session.get(url, headers=headers, timeout=self.timeout)
+            resp.raise_for_status()
+            files = resp.json().get("files", {})
+            content_file = next(
+                (f for f in files.values() if f["filename"].endswith(".json")),
+                None,
+            )
+            if not content_file:
+                self._logger.error("Kein JSON-File im Gist gefunden.")
+                return []
+            raw_url = content_file["raw_url"]
+            data = self._session.get(raw_url, timeout=self.timeout).json()
+        except requests.RequestException as exc:
+            self._logger.error(f"Gist-Abruf fehlgeschlagen: {exc}")
+            return []
+        except Exception as exc:
+            self._logger.error(f"Gist-Parsing Fehler: {exc}")
+            return []
+
+        updated = data.get("updated", "unbekannt")
+        self._logger.info(f"Gist-Daten vom: {updated}")
+
+        entries: list[WatchlistEntry] = []
+        for pick in data.get("daytrading_picks", []):
+            try:
+                entry = WatchlistEntry(
+                    ticker=pick["ticker"],
+                    name=pick.get("name", pick["ticker"]),
+                    price=float(pick["price"]),
+                    score=float(pick["score"]),
+                    volume_m=float(pick["volume_m"]),
+                    beta=float(pick.get("beta", 1.0)),
+                    atr_pct=float(pick.get("atr_pct", 0.0)),
+                    mktcap_b=float(pick.get("mktcap_b", 0)),
+                    sector=pick.get("sector", ""),
+                    typ=pick.get("typ", "Aktie"),
+                )
+            except (KeyError, TypeError, ValueError) as exc:
+                self._logger.warning(
+                    f"Gist-Eintrag uebersprungen ({pick.get('ticker', '?')}): {exc}"
+                )
+                continue
+
+            if entry.score < min_score:
+                continue
+            if entry.volume_m < min_volume_m:
+                continue
+            if entry.atr_pct < min_atr_pct:
+                continue
+            entries.append(entry)
+
+        entries = entries[:top_n]
+        self._logger.info(
+            f"Gist-Watchlist: {len(entries)} Titel "
+            f"(Stand: {updated})"
+        )
+        return entries
+
+    def get_quality_picks_from_gist(self, gist_id: str) -> list[ScreenerPick]:
+        """Liest Quality-Picks aus dem Gist (von update_gist.py befüllt)."""
+        url = f"https://api.github.com/gists/{gist_id}"
+        headers = {"Authorization": f"token {self.api_key}"} if self.api_key else {}
+        try:
+            resp = self._session.get(url, headers=headers, timeout=self.timeout)
+            resp.raise_for_status()
+            files = resp.json().get("files", {})
+            content_file = next(
+                (f for f in files.values() if f["filename"].endswith(".json")), None
+            )
+            if not content_file:
+                return []
+            data = self._session.get(content_file["raw_url"], timeout=self.timeout).json()
+        except Exception as exc:
+            self._logger.error(f"Gist Quality-Picks Fehler: {exc}")
+            return []
+
+        picks: list[ScreenerPick] = []
+        for p in data.get("quality_picks", []):
+            try:
+                picks.append(ScreenerPick(
+                    ticker=p["ticker"],
+                    name=p.get("name", p["ticker"]),
+                    price=float(p["price"]),
+                    score=float(p["score"]),
+                    sector=p.get("sector", ""),
+                    mktcap_b=float(p.get("mktcap_b", 0)),
+                    fair_value=p.get("fair_value"),
+                    discount_pct=p.get("discount_pct"),
+                ))
+            except (KeyError, TypeError, ValueError) as exc:
+                self._logger.warning(f"Gist Quality-Eintrag uebersprungen: {exc}")
+        return picks
+
+    # ------------------------------------------------------------------
     # Makro-Signale  (/signals)
     # ------------------------------------------------------------------
 

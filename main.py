@@ -82,6 +82,51 @@ def run_backtest(config: dict, logger) -> None:
     backtester.print_results(backtester.run(df))
 
 
+def _load_watchlist(config: dict, logger) -> tuple[list[str], "ScreenerClient | None"]:
+    """Laedt die Watchlist entweder aus dem GitHub Gist oder der REST-API.
+
+    Gist-Modus (empfohlen): schneller, echte ATR-Werte, kein Cold-Start.
+    REST-Modus: direkter Aufruf der Railway-API.
+    Fallback:   feste Liste wenn kein Screener konfiguriert ist.
+
+    Returns:
+        (tickers, client) – client ist None bei Fallback.
+    """
+    api_cfg = config.get("screener_api", {})
+    dt_cfg = api_cfg.get("daytrading", {})
+    kwargs = dict(
+        top_n=dt_cfg.get("top_n", 15),
+        min_score=dt_cfg.get("min_score", 55),
+        min_atr_pct=dt_cfg.get("min_atr_pct", 1.5),
+        min_volume_m=dt_cfg.get("min_volume_m", 10.0),
+    )
+
+    gist_id = api_cfg.get("gist_id", "")
+    base_url = api_cfg.get("base_url", "")
+
+    if gist_id:
+        client = ScreenerClient(
+            base_url=base_url or "https://api.github.com",
+            api_key=api_cfg.get("api_key", ""),
+        )
+        entries = client.get_watchlist_from_gist(gist_id=gist_id, **kwargs)
+        logger.info(f"Gist-Modus: {len(entries)} Titel geladen (GIST_ID={gist_id[:8]}...)")
+    elif base_url:
+        client = ScreenerClient(base_url=base_url, api_key=api_cfg.get("api_key", ""))
+        entries = client.get_daytrading_watchlist(**kwargs)
+        logger.info(f"REST-Modus: {len(entries)} Titel geladen")
+    else:
+        fallback = ["TSLA", "NVDA", "AMD", "META", "AMZN"]
+        logger.warning("Kein Screener konfiguriert – nutze Fallback-Watchlist.")
+        return fallback, None
+
+    if dt_cfg.get("exclude_leveraged_etfs", True):
+        entries = [e for e in entries if e.typ != "ETF (Leveraged)"]
+
+    client.print_watchlist(entries)
+    return [e.ticker for e in entries], client
+
+
 def run_alpaca(config: dict, logger, paper: bool) -> None:
     """Alpaca Paper- oder Live-Trading mit Screener-Watchlist."""
     mode_str = "PAPER" if paper else "LIVE"
@@ -101,30 +146,7 @@ def run_alpaca(config: dict, logger, paper: bool) -> None:
         f"Kaufkraft: ${acc.get('buying_power', 0):,.2f}"
     )
 
-    # Watchlist vom Screener laden
-    api_cfg = config.get("screener_api", {})
-    watchlist_tickers: list[str] = []
-    if api_cfg.get("base_url"):
-        client = ScreenerClient(
-            base_url=api_cfg["base_url"],
-            api_key=api_cfg.get("api_key", ""),
-        )
-        dt_cfg = api_cfg.get("daytrading", {})
-        entries = client.get_daytrading_watchlist(
-            top_n=dt_cfg.get("top_n", 15),
-            min_score=dt_cfg.get("min_score", 55),
-            min_atr_pct=dt_cfg.get("min_atr_pct", 2.0),
-            min_volume_m=dt_cfg.get("min_volume_m", 10.0),
-        )
-        if dt_cfg.get("exclude_leveraged_etfs", True):
-            entries = [e for e in entries if e.typ != "ETF (Leveraged)"]
-        watchlist_tickers = [e.ticker for e in entries]
-        client.print_watchlist(entries)
-    else:
-        # Fallback: feste Liste
-        watchlist_tickers = ["TSLA", "NVDA", "AMD", "META", "AMZN"]
-        logger.warning("Kein Screener konfiguriert – nutze Fallback-Watchlist.")
-
+    watchlist_tickers, _ = _load_watchlist(config, logger)
     if not watchlist_tickers:
         logger.warning("Watchlist leer. Abbruch.")
         return
@@ -232,45 +254,59 @@ def run_optimize(config: dict, logger) -> None:
 
 def run_morning_scan(config: dict, logger) -> None:
     api_cfg = config.get("screener_api", {})
+    gist_id = api_cfg.get("gist_id", "")
     base_url = api_cfg.get("base_url", "")
-    if not base_url:
-        logger.error("screener_api.base_url fehlt in config.yaml.")
+
+    if not gist_id and not base_url:
+        logger.error("screener_api.gist_id oder screener_api.base_url fehlt in config.yaml.")
         return
-    client = ScreenerClient(base_url=base_url, api_key=api_cfg.get("api_key", ""))
-    if not client.is_online():
-        logger.error(f"API nicht erreichbar: {base_url}")
-        return
-    macro = api_cfg.get("macro_filter", {})
-    if macro.get("enabled"):
-        regime = client.get_signals().get("macro", {}).get("regime", "Neutral")
-        logger.info(f"Makro-Regime: {regime}")
-        if macro.get("skip_on_risk_off") and regime == "Risk-Off":
-            logger.warning("Risk-Off – Morning-Scan abgebrochen.")
-            return
-    dt = api_cfg.get("daytrading", {})
-    entries = client.get_daytrading_watchlist(
-        top_n=dt.get("top_n", 15), min_score=dt.get("min_score", 55),
-        min_atr_pct=dt.get("min_atr_pct", 2.0), min_volume_m=dt.get("min_volume_m", 10.0),
+
+    client = ScreenerClient(
+        base_url=base_url or "https://api.github.com",
+        api_key=api_cfg.get("api_key", ""),
     )
+
+    # Makro-Filter (nur im REST-Modus verfuegbar)
+    if base_url and not gist_id:
+        if not client.is_online():
+            logger.error(f"API nicht erreichbar: {base_url}")
+            return
+        macro = api_cfg.get("macro_filter", {})
+        if macro.get("enabled"):
+            regime = client.get_signals().get("macro", {}).get("regime", "Neutral")
+            logger.info(f"Makro-Regime: {regime}")
+            if macro.get("skip_on_risk_off") and regime == "Risk-Off":
+                logger.warning("Risk-Off – Morning-Scan abgebrochen.")
+                return
+
+    dt = api_cfg.get("daytrading", {})
+    kwargs = dict(
+        top_n=dt.get("top_n", 15), min_score=dt.get("min_score", 55),
+        min_atr_pct=dt.get("min_atr_pct", 1.5), min_volume_m=dt.get("min_volume_m", 10.0),
+    )
+
+    if gist_id:
+        entries = client.get_watchlist_from_gist(gist_id=gist_id, **kwargs)
+        quality_picks = client.get_quality_picks_from_gist(gist_id=gist_id)
+        value_picks = []
+    else:
+        entries = client.get_daytrading_watchlist(**kwargs)
+        q_cfg = api_cfg.get("quality", {})
+        quality_picks = client.get_quality_picks(
+            top_n=q_cfg.get("top_n", 5), min_score=q_cfg.get("min_score", 65),
+        )
+        v_cfg = api_cfg.get("value", {})
+        value_picks = client.get_value_picks(
+            top_n=v_cfg.get("top_n", 10), min_score=v_cfg.get("min_score", 55),
+        )
+
     if dt.get("exclude_leveraged_etfs", True):
         entries = [e for e in entries if e.typ != "ETF (Leveraged)"]
+
     client.print_watchlist(entries)
-
-    # Quality-Picks (Fundamental / Langfrist)
-    q_cfg = api_cfg.get("quality", {})
-    quality_picks = client.get_quality_picks(
-        top_n=q_cfg.get("top_n", 5),
-        min_score=q_cfg.get("min_score", 65),
-    )
     client.print_picks(quality_picks, title="QUALITY PICKS (Langfrist)")
-
-    # Value-Picks (KGV, KBV, FCF)
-    v_cfg = api_cfg.get("value", {})
-    value_picks = client.get_value_picks(
-        top_n=v_cfg.get("top_n", 10),
-        min_score=v_cfg.get("min_score", 55),
-    )
-    client.print_picks(value_picks, title="VALUE PICKS")
+    if value_picks:
+        client.print_picks(value_picks, title="VALUE PICKS")
 
     scan = config.get("morning_scan", {})
     if scan.get("save_to_file") and entries:
@@ -328,29 +364,7 @@ def run_ibkr(config: dict, logger, paper: bool) -> None:
             f"Kaufkraft: ${acc.get('buying_power', 0):,.2f}"
         )
 
-    # Watchlist
-    api_cfg = config.get("screener_api", {})
-    watchlist_tickers: list[str] = []
-    if api_cfg.get("base_url"):
-        client = ScreenerClient(
-            base_url=api_cfg["base_url"],
-            api_key=api_cfg.get("api_key", ""),
-        )
-        dt_cfg = api_cfg.get("daytrading", {})
-        entries = client.get_daytrading_watchlist(
-            top_n=dt_cfg.get("top_n", 15),
-            min_score=dt_cfg.get("min_score", 55),
-            min_atr_pct=dt_cfg.get("min_atr_pct", 2.0),
-            min_volume_m=dt_cfg.get("min_volume_m", 10.0),
-        )
-        if dt_cfg.get("exclude_leveraged_etfs", True):
-            entries = [e for e in entries if e.typ != "ETF (Leveraged)"]
-        watchlist_tickers = [e.ticker for e in entries]
-        client.print_watchlist(entries)
-    else:
-        watchlist_tickers = ["TSLA", "NVDA", "AMD", "META", "AMZN"]
-        logger.warning("Kein Screener konfiguriert – nutze Fallback-Watchlist.")
-
+    watchlist_tickers, _ = _load_watchlist(config, logger)
     if not watchlist_tickers:
         logger.warning("Watchlist leer. Abbruch.")
         return

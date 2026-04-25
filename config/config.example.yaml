@@ -122,8 +122,14 @@ optimize:
 #   GET /score/{ticker}      -> Einzel-Analyse
 screener_api:
   base_url: ""          # z.B. https://mb-aktienscreener.up.railway.app
-  api_key: ""           # optional, falls Railway-Schutz aktiv
+  api_key: ""           # optional: Railway-API-Schutz ODER GitHub PAT fuer Gist
   timeout: 30
+
+  # Gist-Modus (empfohlen): Trading-Bor liest vorberechnete Picks aus einem
+  # GitHub Gist statt die REST-API direkt aufzurufen.
+  # update_gist.py (in MB-AktienScreener-Railway) befuellt das Gist stündlich.
+  # Vorteil: kein Railway Cold-Start, echte ATR%-Werte statt Beta-Schaetzung.
+  gist_id: ""           # Gist-ID aus dem ersten Run von update_gist.py
 
   # /screener/tradeable  ->  Daytrading-Watchlist
   # ATR% wird aus Beta geschaetzt (atr_pct ≈ beta * 0.9)
